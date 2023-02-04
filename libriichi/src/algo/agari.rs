@@ -49,16 +49,23 @@ static AGARI_TABLE: Lazy<BoomHashMap<u32, Vec<Div>>> = Lazy::new(|| {
     BoomHashMap::new(keys, values)
 });
 
+// shuntsu (sequence), koutsu (three-of-a-kind), kantsu (four-of-a-kind), and jantou (pair)
+
 #[derive(Debug)]
 struct Div {
     pair_idx: u8,
     kotsu_idxs: Vec<u8>,
     shuntsu_idxs: Vec<u8>,
+    // 七対子
     has_chitoi: bool,
+    // 九連宝燈
     has_chuuren: bool,
+    // 一気通貫
     has_ittsuu: bool,
+    // 二盃口
     has_ryanpeikou: bool,
     // CAUTION: it is sound but not complete, broken if there is any ankan
+    // 一盃口
     has_ipeikou: bool,
 }
 
@@ -69,6 +76,7 @@ pub enum Agari {
         fu: u8,
         han: u8,
     },
+    // 役満
     Yakuman(u8),
 }
 
@@ -77,13 +85,16 @@ pub struct AgariCalculator<'a> {
     /// Must include the winning tile (i.e. must be 3n+2)
     pub tehai: &'a [u8; 34],
     /// `self.chis.is_empty() && self.pons.is_empty() && self.minkans.is_empty()`
+    // 門前
     pub is_menzen: bool,
     pub chis: &'a [u8],
     pub pons: &'a [u8],
     pub minkans: &'a [u8],
     pub ankans: &'a [u8],
 
+    // 場風
     pub bakaze: u8,
+    // 自風
     pub jikaze: u8,
 
     /// Must be deakaized
@@ -99,7 +110,9 @@ struct DivWorker<'sup, 'a> {
     tile14: &'a [u8; 14],
     div: &'a Div,
     pair_tile: u8,
+    // koutsu (刻子) 门前
     menzen_kotsu: Vec<u8>,
+    // shuntsu (順子) 门前
     menzen_shuntsu: Vec<u8>,
 
     /// Used in fu calc and sanankou condition.
@@ -432,7 +445,7 @@ impl<'sup, 'a> DivWorker<'sup, 'a> {
 
         ((fu - 1) / 10 + 1) * 10
     }
-
+    // 役
     fn search_yakus<const RETURN_IF_ANY: bool>(&self) -> Option<Agari> {
         let mut han = 0;
         let mut yakuman = 0;

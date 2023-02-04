@@ -1,6 +1,7 @@
 import numpy as np
 from torch.optim.lr_scheduler import LambdaLR
 
+
 class LinearWarmUpCosineAnnealingLR(LambdaLR):
     def __init__(self, optimizer, *, peak, final, warm_up_steps, max_steps, init=1e-8, offset=0, **kwargs):
         assert peak >= final >= init >= 0

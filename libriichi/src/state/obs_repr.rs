@@ -587,6 +587,7 @@ impl<'a> ObsEncoderContext<'a> {
         self.idx += Self::SELF_KAWA_ITEM_CHANNELS;
     }
 
+     // kawa 牌河
     fn encode_kawa(&mut self, item: Option<&KawaItem>) {
         if let Some(k) = item {
             if let Some(cp) = &k.chi_pon {
@@ -610,15 +611,19 @@ impl<'a> ObsEncoderContext<'a> {
             let sutehai = k.sutehai;
             let tile_id = sutehai.tile.deaka().as_usize();
             self.arr[[self.idx + 3, tile_id]] = 1.;
+            // sutehai 打牌
+            // aka 红宝牌
             if sutehai.tile.is_aka() {
                 self.arr.slice_mut(s![self.idx + 4, ..]).fill(1.);
             }
             if sutehai.is_dora {
                 self.arr.slice_mut(s![self.idx + 5, ..]).fill(1.);
             }
+            // Tedashi	已经打过的牌
             if sutehai.is_tedashi {
                 self.arr.slice_mut(s![self.idx + 6, ..]).fill(1.);
             }
+            // 是否立直
             if sutehai.is_riichi {
                 self.arr.slice_mut(s![self.idx + 7, ..]).fill(1.);
             }

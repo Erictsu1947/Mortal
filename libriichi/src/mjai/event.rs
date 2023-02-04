@@ -47,6 +47,7 @@ pub enum Event {
         actor: u8,
         pai: Tile,
     },
+    // 打牌
     Dahai {
         #[serde_as(deserialize_as = "TryFromInto<Actor>")]
         actor: u8,
@@ -70,6 +71,7 @@ pub enum Event {
         pai: Tile,
         consumed: [Tile; 2],
     },
+    // 明杠
     Daiminkan {
         #[serde_as(deserialize_as = "TryFromInto<Actor>")]
         actor: u8,
@@ -78,6 +80,7 @@ pub enum Event {
         pai: Tile,
         consumed: [Tile; 3],
     },
+    // 加杠
     Kakan {
         #[serde_as(deserialize_as = "TryFromInto<Actor>")]
         actor: u8,
@@ -111,6 +114,7 @@ pub enum Event {
         deltas: Option<[i32; 4]>,
         ura_markers: Option<Vec<Tile>>,
     },
+    // 流局
     Ryukyoku {
         deltas: Option<[i32; 4]>,
     },

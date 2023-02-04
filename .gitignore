@@ -12,3 +12,13 @@ __pycache__
 *.ipynb
 
 /_draft
+
+*.whl
+*.7z
+*.gz
+*.zip
+traget
+mortal/train_model
+mortal/train_model_v1
+mortal/grp_v2
+.idea

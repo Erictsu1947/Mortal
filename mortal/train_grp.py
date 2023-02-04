@@ -99,6 +99,7 @@ def train():
     state_file = cfg['state_file']
     if path.exists(state_file):
         state = torch.load(state_file, map_location=device)
+        # import ipdb;ipdb.set_trace()
         timestamp = datetime.fromtimestamp(state['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
         logging.info(f'loaded: {timestamp}')
         grp.load_state_dict(state['model'])
@@ -223,7 +224,7 @@ def train():
 
             for k in stats:
                 stats[k] = 0
-            approx_percent = steps * batch_size / (len(train_file_list) * 10) * 100
+            approx_percent = steps * batch_size / (len(train_file_list) * 10)
             logging.info(f'total steps: {steps:,} est. {approx_percent:6.3f}%')
 
             state = {

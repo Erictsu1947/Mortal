@@ -7,6 +7,7 @@ from functools import partial
 from itertools import permutations
 from libriichi.consts import obs_shape, oracle_obs_shape, ACTION_SPACE, GRP_SIZE
 
+
 class ChannelAttention(nn.Module):
     def __init__(self, channels, ratio=16, actv_builder=nn.ReLU):
         super().__init__()
@@ -26,15 +27,16 @@ class ChannelAttention(nn.Module):
         x = weight.unsqueeze(-1) * x
         return x
 
+
 class ResBlock(nn.Module):
     def __init__(
-        self,
-        channels,
-        *,
-        norm_builder = nn.Identity,
-        actv_builder = nn.ReLU,
-        pre_actv = False,
-        bias = True,
+            self,
+            channels,
+            *,
+            norm_builder=nn.Identity,
+            actv_builder=nn.ReLU,
+            pre_actv=False,
+            bias=True,
     ):
         super().__init__()
         self.actv = actv_builder()
@@ -67,17 +69,18 @@ class ResBlock(nn.Module):
             out = self.actv(out)
         return out
 
+
 class ResNet(nn.Module):
     def __init__(
-        self,
-        in_channels,
-        conv_channels,
-        num_blocks,
-        *,
-        norm_builder = nn.Identity,
-        actv_builder = nn.ReLU,
-        pre_actv = False,
-        bias = True,
+            self,
+            in_channels,
+            conv_channels,
+            num_blocks,
+            *,
+            norm_builder=nn.Identity,
+            actv_builder=nn.ReLU,
+            pre_actv=False,
+            bias=True,
     ):
         super().__init__()
 
@@ -85,10 +88,10 @@ class ResNet(nn.Module):
         for _ in range(num_blocks):
             blocks.append(ResBlock(
                 conv_channels,
-                norm_builder = norm_builder,
-                actv_builder = actv_builder,
-                pre_actv = pre_actv,
-                bias = bias,
+                norm_builder=norm_builder,
+                actv_builder=actv_builder,
+                pre_actv=pre_actv,
+                bias=bias,
             ))
 
         layers = [nn.Conv1d(in_channels, conv_channels, kernel_size=3, padding=1, bias=bias)]
@@ -107,6 +110,7 @@ class ResNet(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+
 class Brain(nn.Module):
     def __init__(self, *, conv_channels, num_blocks, is_oracle=False, version=1):
         super().__init__()
@@ -122,31 +126,30 @@ class Brain(nn.Module):
         actv_builder = partial(nn.Mish, inplace=True)
         pre_actv = True
 
-        match version:
-            case 1:
-                actv_builder = partial(nn.ReLU, inplace=True)
-                pre_actv = False
-                self.latent_net = nn.Sequential(
-                    nn.Linear(1024, 512),
-                    nn.ReLU(inplace=True),
-                )
-                self.mu_head = nn.Linear(512, 512)
-                self.logsig_head = nn.Linear(512, 512)
-            case 2:
-                pass
-            case 3:
-                norm_builder = partial(nn.BatchNorm1d, conv_channels, momentum=0.01, eps=1e-3)
-            case _:
-                raise ValueError(f'Unexpected version {self.version}')
+        if version == 1:
+            actv_builder = partial(nn.ReLU, inplace=True)
+            pre_actv = False
+            self.latent_net = nn.Sequential(
+                nn.Linear(1024, 512),
+                nn.ReLU(inplace=True),
+            )
+            self.mu_head = nn.Linear(512, 512)
+            self.logsig_head = nn.Linear(512, 512)
+        elif version == 2:
+            pass
+        elif version == 3:
+            norm_builder = partial(nn.BatchNorm1d, conv_channels, momentum=0.01, eps=1e-3)
+        else:
+            raise ValueError(f'Unexpected version {self.version}')
 
         self.encoder = ResNet(
-            in_channels = in_channels,
-            conv_channels = conv_channels,
-            num_blocks = num_blocks,
-            norm_builder = norm_builder,
-            actv_builder = actv_builder,
-            pre_actv = pre_actv,
-            bias = bias,
+            in_channels=in_channels,
+            conv_channels=conv_channels,
+            num_blocks=num_blocks,
+            norm_builder=norm_builder,
+            actv_builder=actv_builder,
+            pre_actv=pre_actv,
+            bias=bias,
         )
 
         # when True, never updates running stats, weights and bias and always use EMA or CMA
@@ -158,16 +161,15 @@ class Brain(nn.Module):
             obs = torch.cat((obs, invisible_obs), dim=1)
         phi = self.encoder(obs)
 
-        match self.version:
-            case 1:
-                latent_out = self.latent_net(phi)
-                mu = self.mu_head(latent_out)
-                logsig = self.logsig_head(latent_out)
-                return mu, logsig
-            case 2 | 3:
-                return F.mish(phi)
-            case _:
-                raise ValueError(f'Unexpected version {self.version}')
+        if self.version == 1:
+            latent_out = self.latent_net(phi)
+            mu = self.mu_head(latent_out)
+            logsig = self.logsig_head(latent_out)
+            return mu, logsig
+        elif self.version in [2, 3]:
+            return F.mish(phi)
+        else:
+            raise ValueError(f'Unexpected version {self.version}')
 
     def train(self, mode=True):
         super().train(mode)
@@ -195,6 +197,7 @@ class Brain(nn.Module):
         self._freeze_bn = value
         return self.train(self.training)
 
+
 class NextRankPredictor(nn.Module):
     def __init__(self):
         super().__init__()
@@ -208,26 +211,26 @@ class NextRankPredictor(nn.Module):
         logits = self.net(x)
         return logits
 
+
 class DQN(nn.Module):
     def __init__(self, *, version=1):
         super().__init__()
         self.version = version
-        match version:
-            case 1:
-                self.v_head = nn.Linear(512, 1)
-                self.a_head = nn.Linear(512, ACTION_SPACE)
-            case 2 | 3:
-                hidden_size = 512 if version == 2 else 256
-                self.v_head = nn.Sequential(
-                    nn.Linear(1024, hidden_size),
-                    nn.Mish(inplace=True),
-                    nn.Linear(hidden_size, 1),
-                )
-                self.a_head = nn.Sequential(
-                    nn.Linear(1024, hidden_size),
-                    nn.Mish(inplace=True),
-                    nn.Linear(hidden_size, ACTION_SPACE),
-                )
+        if version == 1:
+            self.v_head = nn.Linear(512, 1)
+            self.a_head = nn.Linear(512, ACTION_SPACE)
+        elif version in [2, 3]:
+            hidden_size = 512 if version == 2 else 256
+            self.v_head = nn.Sequential(
+                nn.Linear(1024, hidden_size),
+                nn.Mish(inplace=True),
+                nn.Linear(hidden_size, 1),
+            )
+            self.a_head = nn.Sequential(
+                nn.Linear(1024, hidden_size),
+                nn.Mish(inplace=True),
+                nn.Linear(hidden_size, ACTION_SPACE),
+            )
 
     def forward(self, phi, mask):
         v = self.v_head(phi)
@@ -237,6 +240,7 @@ class DQN(nn.Module):
         a_mean = a_sum / mask_sum
         q = (v + a - a_mean).masked_fill(~mask, -torch.inf)
         return q
+
 
 class GRP(nn.Module):
     def __init__(self, hidden_size=64, num_layers=2):
@@ -253,8 +257,8 @@ class GRP(nn.Module):
         # perms are the permutations of all possible rank-by-player result
         perms = torch.tensor(list(permutations(range(4))))
         perms_t = perms.transpose(0, 1)
-        self.register_buffer('perms', perms)     # (24, 4)
-        self.register_buffer('perms_t', perms_t) # (4, 24)
+        self.register_buffer('perms', perms)  # (24, 4)
+        self.register_buffer('perms_t', perms_t)  # (4, 24)
 
     # input: [grand_kyoku, honba, kyotaku, s[0], s[1], s[2], s[3]]
     # grand_kyoku: E1 = 0, S4 = 7, W4 = 11

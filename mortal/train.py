@@ -35,7 +35,14 @@ def train():
     save_every = config['control']['save_every']
     test_every = config['control']['test_every']
     submit_every = config['control']['submit_every']
+    is_oracle = config['control']['is_oracle']
+
+    enable_test_play = config['control']['enable_test_play']
     test_games = config['test_play']['games']
+    # save_every = 10
+    # test_every = 200
+    # submit_every = 10
+    # test_games = 10
     min_q_weight = config['cql']['min_q_weight']
     next_rank_weight = config['aux']['next_rank_weight']
     assert save_every % opt_step_every == 0
@@ -57,7 +64,7 @@ def train():
     weight_decay = config['optim']['weight_decay']
     max_grad_norm = config['optim']['max_grad_norm']
 
-    mortal = Brain(version=version, **config['resnet']).to(device)
+    mortal = Brain(version=version, **config['resnet'], is_oracle=is_oracle).to(device)
     current_dqn = DQN(version=version).to(device)
     next_rank_pred = NextRankPredictor().to(device)
 
@@ -102,6 +109,7 @@ def train():
         state = torch.load(state_file, map_location=device)
         timestamp = datetime.fromtimestamp(state['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
         logging.info(f'loaded: {timestamp}')
+        # import ipdb;ipdb.set_trace()
         mortal.load_state_dict(state['mortal'])
         current_dqn.load_state_dict(state['current_dqn'])
         next_rank_pred.load_state_dict(state['next_rank_pred'])
@@ -203,9 +211,14 @@ def train():
             actions = actions.to(dtype=torch.int64, device=device)
             masks = masks.to(dtype=torch.bool, device=device)
             steps_to_done = steps_to_done.to(dtype=torch.int64, device=device)
+            # 流局
             kyoku_rewards = kyoku_rewards.to(dtype=torch.float64, device=device)
             player_ranks = player_ranks.to(dtype=torch.int64, device=device)
-            assert masks[range(batch_size), actions].all()
+            # assert masks[range(batch_size), actions].all(), "not equal: %d, mask:%s action: %s" % (batch_size, masks, actions)
+            # masks[range(batch_size), actions].all()
+            if not masks[range(batch_size), actions].all():
+                logging.error("not equal: %d, mask:%s action: %s" % (batch_size, masks, actions))
+                continue
 
             q_target_mc = gamma ** steps_to_done * kyoku_rewards
             q_target_mc = q_target_mc.to(torch.float32)
@@ -241,6 +254,7 @@ def train():
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
+                # optimizer.step()
             scheduler.step()
             pb.update(1)
 
@@ -289,7 +303,7 @@ def train():
                     submit_param(None, mortal, current_dqn, is_idle=False)
                     logging.info('param has been submitted')
 
-                if steps % test_every == 0:
+                if enable_test_play and steps % test_every == 0:
                     stat = test_player.test_play(test_games // 4, mortal, current_dqn, device)
                     mortal.train()
                     current_dqn.train()

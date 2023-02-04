@@ -24,10 +24,10 @@ def main():
     except:
         print(USAGE, file=sys.stderr)
         sys.exit(1)
-    review_mode = os.environ.get('MORTAL_REVIEW_MODE', '0') == '1'
+    review_mode = os.environ.get('MORTAL_REVIEW_MODE', '1') == '1'
 
-    device = torch.device('cpu')
-    state = torch.load(config['control']['state_file'], map_location=torch.device('cpu'))
+    device = torch.device('cuda')
+    state = torch.load(config['control']['state_file'], map_location=torch.device('cuda'))
     cfg = state['config']
     version = cfg['control'].get('version', 1)
     num_blocks = cfg['resnet']['num_blocks']
